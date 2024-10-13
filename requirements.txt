@@ -1,0 +1,4 @@
+langchain
+langchain-ollama
+langchain-core
+langchain-text-splitters
