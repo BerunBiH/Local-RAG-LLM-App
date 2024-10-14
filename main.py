@@ -9,6 +9,9 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_text_splitters import CharacterTextSplitter
 from langchain.docstore.document import Document
+import fitz  # PyMuPDF for PDF extraction
+from tkinter import Tk
+from tkinter.filedialog import askopenfilename
 
 # Initialize the model
 model = OllamaLLM(model="llama3.2")
@@ -23,7 +26,7 @@ def create_folders():
         os.makedirs("text_files/web_scraping")
 
 # Function to load documents from the provided URL and save to file
-def load_context_from_url(url, user_input):
+def load_context_from_url(url):
     try:
         docs = WebBaseLoader(url).load()
 
@@ -56,6 +59,41 @@ def load_context_from_url(url, user_input):
             return None
     except Exception as e:
         print(f"Failed to load documents from URL {url}: {e}")
+        return None
+
+# Function to load documents from a PDF file
+def load_context_from_pdf():
+    try:
+        # Use tkinter to select a file from the computer
+        Tk().withdraw()  # Hide the root window
+        pdf_path = askopenfilename(filetypes=[("PDF files", "*.pdf")])
+
+        if not pdf_path:
+            print("No file selected.")
+            return None
+
+        # Load the PDF file
+        doc = fitz.open(pdf_path)
+        pdf_text = ""
+
+        # Extract text from all pages
+        for page in doc:
+            pdf_text += page.get_text()
+
+        # Create a unique filename for the PDF output based on timestamp
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        pdf_output_filename = f"text_files/web_scraping/pdf_output_{timestamp}.txt"
+
+        # Save extracted PDF text to a file
+        with open(pdf_output_filename, "w", encoding="utf-8") as f:
+            f.write(pdf_text)
+
+        print(f"PDF content saved to {pdf_output_filename}")
+
+        # Return as a Document object
+        return [Document(page_content=pdf_text)]
+    except Exception as e:
+        print(f"Failed to load documents from PDF: {e}")
         return None
 
 # Template for answering questions
@@ -91,12 +129,12 @@ def save_embeddings(vectorstore, documents, id):
             print(f"Failed to save embeddings: {e}")
     else:
         print("No vectorstore or documents found to save embeddings.")
+
 # Main chatbot conversation handler
 def handle_conversation():
     print("Welcome to the AI ChatBot! Type 'exit' to quit.")
 
     conversation_history = []
-    last_sent_url = None
     vectorstore = None
     id = 1
 
@@ -112,15 +150,25 @@ def handle_conversation():
             print("Invalid option. Please enter 1 or 2.")
             continue
 
-        user_input = input("You: ")
-        if user_input.lower() == "exit":
-            break
-
         if option == '1':
-            url = input("Please provide the URL of the website to load context from: ")
-            docs_list = load_context_from_url(url, user_input)
+            file_choice = input("Do you want to provide context from a (1) URL or (2) PDF? Please enter 1 or 2: ")
+
+            docs_list = None
+            if file_choice == '1':
+                url = input("Please provide the URL of the website to load context from: ")
+                docs_list = load_context_from_url(url)
+            elif file_choice == '2':
+                docs_list = load_context_from_pdf()
+            else:
+                print("Invalid choice. Please enter 1 or 2.")
+                continue
 
             if docs_list:
+                # Ask the user for their question after loading the context
+                user_input = input("You: ")
+                if user_input.lower() == "exit":
+                    break
+
                 # Reset the vectorstore and retriever before loading new documents
                 vectorstore = None
 
@@ -130,7 +178,7 @@ def handle_conversation():
                 # Create a new vectorstore with the split documents
                 vectorstore = Chroma.from_documents(
                     documents=docs_splits,
-                    collection_name=f"rag-chroma-{id}",  # Use a unique collection name based on URL
+                    collection_name=f"rag-chroma-{id}",  # Use a unique collection name based on URL or PDF
                     embedding=embeddings.OllamaEmbeddings(model='nomic-embed-text'),
                 )
 
@@ -138,7 +186,7 @@ def handle_conversation():
                 save_embeddings(vectorstore, docs_splits, id)
 
                 id += 1
-                
+
                 # Create a new retriever instance after creating the vectorstore
                 retriever = vectorstore.as_retriever()
 
@@ -152,13 +200,15 @@ def handle_conversation():
                     print(f"Retrieved {len(context)} documents.")
 
                 result = after_rag_chain.invoke({"context": formatted_context, "question": user_input})
-
-                # Update the last sent URL
-                last_sent_url = url
             else:
-                result = "Failed to retrieve context from the provided URL."
+                result = "Failed to retrieve context from the provided source."
 
         elif option == '2':
+            # Ask for the question input for the general knowledge option
+            user_input = input("You: ")
+            if user_input.lower() == "exit":
+                break
+
             general_knowledge_prompt = f"Answer the following question based on your general knowledge: {user_input}"
             result = model.invoke(general_knowledge_prompt)
 
