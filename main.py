@@ -1,3 +1,5 @@
+import os
+import datetime
 from langchain.document_loaders import WebBaseLoader
 from langchain.vectorstores import Chroma
 from langchain_ollama import embeddings
@@ -6,18 +8,24 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_text_splitters import CharacterTextSplitter
-from langchain.docstore.document import Document # Import Document class
+from langchain.docstore.document import Document
 
 # Initialize the model
 model = OllamaLLM(model="llama3.2")
 
-# Function to load documents from the provided URL
-def load_context_from_url(url):
+# Function to create folders if they don't exist
+def create_folders():
+    if not os.path.exists("text_files"):
+        os.makedirs("text_files")
+    if not os.path.exists("text_files/embeddings"):
+        os.makedirs("text_files/embeddings")
+    if not os.path.exists("text_files/web_scraping"):
+        os.makedirs("text_files/web_scraping")
+
+# Function to load documents from the provided URL and save to file
+def load_context_from_url(url, user_input):
     try:
         docs = WebBaseLoader(url).load()
-
-        # Debug: Print the type of docs loaded
-        print(f"Loaded documents: {docs}")
 
         if isinstance(docs, list):
             docs_list = []
@@ -29,8 +37,16 @@ def load_context_from_url(url):
                 else:
                     docs_list.append(str(doc))  # Ensure it's a string
 
-            # Debug: Print the collected document texts
-            print(f"Documents collected: {docs_list}")
+            # Create a unique filename for the web scraping output based on timestamp
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            web_scraping_filename = f"text_files/web_scraping/web_scraping_output_{timestamp}.txt"
+
+            # Save web scraped documents to a file
+            with open(web_scraping_filename, "w", encoding="utf-8") as f:
+                for i, text in enumerate(docs_list):
+                    f.write(f"Document {i+1}:\n{text}\n\n")
+
+            print(f"Web scraping content saved to {web_scraping_filename}")
 
             # Return all documents as a list of Document objects
             doc_objects = [Document(page_content=text) for text in docs_list]
@@ -56,6 +72,25 @@ after_rag_chain = (
     | StrOutputParser()
 )
 
+# Function to save embeddings to a text file from vectorstore creation
+def save_embeddings(vectorstore, documents, id):
+    # Create a unique filename for the embedding output based on timestamp
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    embedding_filename = f"text_files/embeddings/embeddings_output_{id}_{timestamp}.txt"
+
+    # Save embeddings and document information from the original documents
+    if vectorstore is not None and documents is not None:
+        try:
+            with open(embedding_filename, "w", encoding="utf-8") as f:
+                for doc in documents:
+                    doc_embedding = vectorstore._embedding_function.embed_documents([doc.page_content])[0]  # Embed the document text
+                    f.write(f"Document: {doc.page_content[:200]}...\nEmbedding Coordinates: {doc_embedding}\n\n")
+
+            print(f"Embeddings saved to {embedding_filename}")
+        except Exception as e:
+            print(f"Failed to save embeddings: {e}")
+    else:
+        print("No vectorstore or documents found to save embeddings.")
 # Main chatbot conversation handler
 def handle_conversation():
     print("Welcome to the AI ChatBot! Type 'exit' to quit.")
@@ -63,7 +98,10 @@ def handle_conversation():
     conversation_history = []
     last_sent_url = None
     vectorstore = None
-    id=1
+    id = 1
+
+    # Ensure necessary folders exist
+    create_folders()
 
     while True:
         option = input("Would you like to use (1) Context or (2) General Knowledge? Please enter 1 or 2: ")
@@ -80,7 +118,7 @@ def handle_conversation():
 
         if option == '1':
             url = input("Please provide the URL of the website to load context from: ")
-            docs_list = load_context_from_url(url)
+            docs_list = load_context_from_url(url, user_input)
 
             if docs_list:
                 # Reset the vectorstore and retriever before loading new documents
@@ -89,9 +127,6 @@ def handle_conversation():
                 text_splitter = CharacterTextSplitter.from_tiktoken_encoder(chunk_size=7500, chunk_overlap=100)
                 docs_splits = text_splitter.split_documents(docs_list)
 
-                # Debug: Print number of split documents
-                print(f"Number of split documents: {len(docs_splits)}")
-
                 # Create a new vectorstore with the split documents
                 vectorstore = Chroma.from_documents(
                     documents=docs_splits,
@@ -99,7 +134,10 @@ def handle_conversation():
                     embedding=embeddings.OllamaEmbeddings(model='nomic-embed-text'),
                 )
 
-                id=id+1
+                # Save the embeddings to a file
+                save_embeddings(vectorstore, docs_splits, id)
+
+                id += 1
                 
                 # Create a new retriever instance after creating the vectorstore
                 retriever = vectorstore.as_retriever()
@@ -112,9 +150,6 @@ def handle_conversation():
                 else:
                     formatted_context = "\n".join([doc.page_content for doc in context])
                     print(f"Retrieved {len(context)} documents.")
-
-                # Debug: Print the context retrieved
-                print(f"Context Retrieved: {formatted_context}")
 
                 result = after_rag_chain.invoke({"context": formatted_context, "question": user_input})
 
