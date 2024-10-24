@@ -112,6 +112,19 @@ def save_embeddings(vectorstore, documents, id):
     else:
         print("No vectorstore or documents found to save embeddings.")
 
+
+def create_vectorstore(docs_list, id):
+    text_splitter = CharacterTextSplitter.from_tiktoken_encoder(chunk_size=7500, chunk_overlap=100)
+    docs_splits = text_splitter.split_documents(docs_list)
+
+    vectorstore = Chroma.from_documents(
+        documents=docs_splits,
+        collection_name=f"rag-chroma-{id}", 
+        embedding=embeddings.OllamaEmbeddings(model='nomic-embed-text'),
+    )
+
+    return vectorstore, docs_splits
+
 def handle_conversation():
     print("Welcome to the AI ChatBot! Type 'exit' to quit.")
 
@@ -149,14 +162,7 @@ def handle_conversation():
                     break
                 vectorstore = None
 
-                text_splitter = CharacterTextSplitter.from_tiktoken_encoder(chunk_size=7500, chunk_overlap=100)
-                docs_splits = text_splitter.split_documents(docs_list)
-
-                vectorstore = Chroma.from_documents(
-                    documents=docs_splits,
-                    collection_name=f"rag-chroma-{id}", 
-                    embedding=embeddings.OllamaEmbeddings(model='nomic-embed-text'),
-                )
+                vectorstore, docs_splits = create_vectorstore(docs_list, id)
 
                 save_embeddings(vectorstore, docs_splits, id)
 
@@ -175,7 +181,7 @@ def handle_conversation():
                 result = after_rag_chain.invoke({"context": formatted_context, "question": user_input})
             else:
                 result = "Failed to retrieve context from the provided source."
-
+            
         elif option == '2':
             user_input = input("You: ")
             if user_input.lower() == "exit":
