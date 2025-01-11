@@ -1,19 +1,11 @@
-# Standard libraries
-os
-tkinter 
-
 # Third-party libraries
-PyMuPDF==1.23.1  # for `fitz` (PyMuPDF)
-
-# Langchain-related libraries
+PyMuPDF
 langchain_community
 langchain_ollama
 langchain_core
 langchain_text_splitters
 langchain
-
-# Additional dependencies for vectorstore (Chroma)
-chromadb==0.3.26
-
-# Optional 
-datetime  # Standard library
+tiktoken
+chromadb
+datetime
+beautifulsoup4
