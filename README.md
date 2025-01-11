@@ -20,7 +20,7 @@ It is important to note that in the "Setting up" section and in the "Video Showc
 
 Both videos are in Bosnian/Serbian/Croatian. 
 - [Video turtorial on how to set up the app](https://youtu.be/sanlywvKafA)
-- [Video showcase of the app]([https://youtu.be/sanlywvKafA](https://youtu.be/Uxz15_lzDFs))
+- [Video showcase of the app]([https://youtu.be/sanlywvKafA](https://youtu.be/Uxz15_lzDFs)
 
 ## Setting up
 
@@ -64,6 +64,7 @@ There you have the following choices:
 ![image](https://github.com/user-attachments/assets/ea232250-7531-4856-97cb-da6ff8ac3243)
 
 - If you type in `1` it will ask you which outside resorce you want to give the AI so that it can answer you a question on it.
+  
 ![image](https://github.com/user-attachments/assets/29d45438-ed47-4686-8b5b-45bce70c6d05)
 
 #### Using outside resorces:
