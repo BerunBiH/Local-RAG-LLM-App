@@ -19,6 +19,8 @@ It is important to note that in the "Setting up" section and in the "Video Showc
 ## Video Showcase
 
 Both videos are in Bosnian/Serbian/Croatian. 
+- [Video turtorial on how to set up the app](https://youtu.be/sanlywvKafA)
+- [Video showcase of the app]([https://youtu.be/sanlywvKafA](https://youtu.be/Uxz15_lzDFs))
 
 ## Setting up
 
